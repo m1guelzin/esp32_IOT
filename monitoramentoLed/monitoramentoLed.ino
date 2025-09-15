@@ -3,18 +3,18 @@
 #include "NewPing.h"
 
 // // Configurações da sua conta Adafruit IO
-// #define IO_USERNAME  ""
-// #define IO_KEY       ""
+// #define IO_USERNAME ""
+// #define IO_KEY ""
 
 // // Configurações de rede Wi-Fi
-// #define WIFI_SSID    ""
-// #define WIFI_PASS    ""
+// #define WIFI_SSID ""
+// #define WIFI_PASS ""
 
 // // Cria objeto de conexão
-// AdafruitIO_WiFi io(IO_USERNAME, IO_KEY, WIFI_SSID, WIFI_PASS);
+AdafruitIO_WiFi io(IO_USERNAME, IO_KEY, WIFI_SSID, WIFI_PASS);
 
 // // Cria referência ao feed
-// AdafruitIO_Feed *botaoLED = io.feed("botaoled");
+AdafruitIO_Feed *botaoalarme = io.feed("botaoalarme");
 
 // Define o pino do LED
 #define LED_PIN 13  // geralmente o pino 2 da ESP32 tem LED onboard
@@ -27,6 +27,11 @@
 #define MAX_DISTANCE 100
 NewPing sonar(TRIG_PIN, ECHO_PIN, MAX_DISTANCE);
 
+// Variaveis de controle
+bool alarmeAtivo = false;
+unsigned int distancia = 0;
+const int LIMITE_DISTANCIA = 15;
+
 void setup() {
   // Inicializa comunicação serial
   Serial.begin(115200);
@@ -35,43 +40,74 @@ void setup() {
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(BOTAO_FISICO, INPUT);
-  
 
-  while(!Serial)
-  ;
+
+  while (!Serial)
+    ;
 
   delay(1000);
 
   // // Conecta ao Adafruit IO
-  // Serial.print("Conectando ao Adafruit IO");
-  // io.connect();
+  Serial.print("Conectando ao Adafruit IO");
+  io.connect();
 
-  // // Registra função callback quando o feed receber dados
-  // botaoLED->onMessage(handleBotaoLed);
+  // Aguarda conexão
+  while (io.status() < AIO_CONNECTED) {
+    Serial.print(".");
+    delay(500);
+  }
 
-  // // Aguarda conexão
-  // while(io.status() < AIO_CONNECTED) {
-  //   Serial.print(".");
-  //   delay(1000);
-  // }
+  Serial.println(" ");
 
-  // Serial.println("Conectado!");
+  Serial.print("Adafruit Conectado!");
+  Serial.println(" ");
+
+  //Vincula a função callback ao feed
+  botaoalarme->onMessage(handleAlarme);
+
+  Serial.println("Solicitando o estado inicial do alarme: ");
+  botaoalarme->get();
+
+  delay(1000);
 }
 
 void loop() {
-  Serial.print(F("Distancia Lida: "));
-  Serial.println(sonar.ping_cm());
-  delay(500);
+  // // Teste components-------------------------
+  // Serial.print(F("Distancia Lida: "));
+  // Serial.println(sonar.ping_cm());
+  // delay(500);
+  // testeBuzzer();
+  // testeLed();
+  // testeBotao(BOTAO_FISICO);
+  // ------------------------------------------
 
+  // Mantém conexão ativa
+  io.run();
 
+  // Leitura do botão fisico
+  if (digitalRead(BOTAO_FISICO) == 1) {
+    delay(300);  // debounce simples
+    alarmeAtivo = !alarmeAtivo;
 
+    botaoalarme->save(String(alarmeAtivo ? "true" : "false"));
+    Serial.println(alarmeAtivo ? "Alarme ARMADO pelo botao fisico." : "Alarme DESARMADO pelo botao fisico.");
+  }
 
+  distancia = sonar.ping_cm();
+  Serial.print("Distancia lida: ");
+  Serial.println(distancia);
+  Serial.println(" cm");
 
+  //Ativação ou desativação do alarme
+  if(alarmeAtivo && distancia > 0 && distancia < LIMITE_DISTANCIA){
+    ativarAlerta();
+  }
+  else{
+    desligarAlerta();
+  }
 
+}
 
-//   // Mantém conexão ativa
-//   io.run();
-// }
 
 // // Função chamada sempre que houver alteração no feed
 // void handleBotaoLed(AdafruitIO_Data *data) {
@@ -86,4 +122,3 @@ void loop() {
 //     digitalWrite(LED_PIN, LOW);
 //     Serial.println("LED DESLIGADO");
 //   }
-}
