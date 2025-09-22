@@ -15,9 +15,14 @@ AdafruitIO_WiFi io(IO_USERNAME, IO_KEY, WIFI_SSID, WIFI_PASS);
 
 // // Cria referência ao feed
 AdafruitIO_Feed *botaoalarme = io.feed("botaoalarme");
+AdafruitIO_Feed *distanciaultrassom = io.feed("distanciaultrassom");
+
 
 // Define o pino do LED
 #define LED_PIN 13  // geralmente o pino 2 da ESP32 tem LED onboard
+#define LED_AMARELO 25    // alarme armado (aguardando disparo)
+#define LED_VERDE 33      // alarme desarmado
+
 #define BUZZER_PIN 27
 #define BOTAO_FISICO 26
 #define TRIG_PIN 12
@@ -38,9 +43,15 @@ void setup() {
 
   // Configura o pino do LED e pino BUZZER como saída
   pinMode(LED_PIN, OUTPUT);
+  pinMode(LED_AMARELO, OUTPUT);
+  pinMode(LED_VERDE, OUTPUT);
+
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(BOTAO_FISICO, INPUT);
 
+  digitalWrite(LED_PIN, LOW);
+  digitalWrite(LED_AMARELO, LOW);
+  digitalWrite(LED_VERDE, HIGH);
 
   while (!Serial)
     ;
@@ -68,7 +79,7 @@ void setup() {
   Serial.println("Solicitando o estado inicial do alarme: ");
   botaoalarme->get();
 
-  delay(1000);
+  delay(3000);
 }
 
 void loop() {
@@ -98,6 +109,11 @@ void loop() {
   Serial.println(distancia);
   Serial.println(" cm");
 
+  if(distancia != 0){
+    //so envia distancias válidas
+  distanciaultrassom -> save(distancia);
+  }
+
   //Ativação ou desativação do alarme
   if(alarmeAtivo && distancia > 0 && distancia < LIMITE_DISTANCIA){
     ativarAlerta();
@@ -106,6 +122,7 @@ void loop() {
     desligarAlerta();
   }
 
+  delay(1000); // Intervalo idela para a Adafruit
 }
 
 
